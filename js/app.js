@@ -117,16 +117,18 @@ function buildRecommendations(userData, repos, eventsData = []) {
     const issuesEvents = eventsData.filter(e => e.type === 'IssuesEvent').length;
     const activityScore = (pushEvents * 2) + (pullRequestEvents * 3) + (issuesEvents * 1);
 
-    // Extract languages from repos (weighted by frequency)
+    // Contributor languages: detect from repository language frequency.
+    // Repos with language metadata are counted; top 3 by frequency become topLanguages.
     const languageCounts = {};
-    repos.forEach(repo => {
-        if (repo.language) {
+    (repos || []).forEach(repo => {
+        if (repo && repo.language) {
             languageCounts[repo.language] = (languageCounts[repo.language] || 0) + 1;
         }
     });
     const languages = Object.keys(languageCounts)
         .sort((a, b) => languageCounts[b] - languageCounts[a])
         .slice(0, 10);
+    const topLanguages = languages.slice(0, 3);
 
     const github_stats = {
         username: userData.login,
@@ -137,22 +139,22 @@ function buildRecommendations(userData, repos, eventsData = []) {
         followers: userData.followers,
         following: userData.following,
         languages,
+        top_languages: topLanguages,
         activity_score: activityScore,
         activity_breakdown: { pushEvents, pullRequestEvents, issuesEvents }
     };
 
-    // Top non-fork repos: rank by stars, with activity-weighted language match boost.
-    // Active contributors (higher activityScore) get repos matching their languages ranked higher.
-    const languageSet = new Set(languages);
-    const getLangBoost = (repo) =>
-        languageSet.has(repo.language) ? activityScore * 0.05 : 0;
+    // Ranking: finalScore = (stars * 0.6) + (activityScore * 0.2) + (languageScore * 0.2)
+    // languageScore = 5 if repo matches contributor's topLanguages, else 0.
+    // Repos in familiar languages rank higher, improving contributor–project matching.
+    const getFinalScore = (repo) => {
+        const stars = repo.stargazers_count || 0;
+        const languageScore = (topLanguages.length && repo.language && topLanguages.includes(repo.language)) ? 5 : 0;
+        return (stars * 0.6) + (activityScore * 0.2) + (languageScore * 0.2);
+    };
     const recommended_repos = repos
         .filter(r => !r.fork && r.description)
-        .sort((a, b) => {
-            const scoreA = a.stargazers_count + getLangBoost(a);
-            const scoreB = b.stargazers_count + getLangBoost(b);
-            return scoreB - scoreA; // descending
-        })
+        .sort((a, b) => getFinalScore(b) - getFinalScore(a))
         .slice(0, 6)
         .map(r => ({
             name: r.full_name,
@@ -253,6 +255,13 @@ function displayResults(data) {
     const activityScoreEl = document.getElementById('contributor-activity-score');
     if (activityScoreEl) {
         activityScoreEl.textContent = githubStats.activity_score ?? 0;
+    }
+
+    // Display Top Languages (contributor's main languages used for language match scoring)
+    const topLanguagesEl = document.getElementById('top-languages-list');
+    if (topLanguagesEl) {
+        const topLangs = githubStats.top_languages || [];
+        topLanguagesEl.textContent = topLangs.length ? topLangs.join(', ') : 'No language data';
     }
 
     // Display languages
