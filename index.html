@@ -279,6 +279,17 @@
                 <i class="fab fa-github"></i>
                 <span>View GitHub profile</span>
               </a>
+              <!-- Contributor Activity Score: weighted sum of PushEvents, PullRequestEvents, IssuesEvents -->
+              <div class="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30">
+                <p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <i class="fas fa-chart-line text-red-600 dark:text-red-400 mr-1"></i>
+                  Contributor Activity Score
+                </p>
+                <p class="text-2xl font-bold text-red-600 dark:text-red-400" id="contributor-activity-score">0</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" id="contributor-activity-label">
+                  Based on commits, pull requests, and issue participation.
+                </p>
+              </div>
               <div id="user-languages" class="flex flex-wrap gap-2 mt-4"></div>
             </div>
           </div>
