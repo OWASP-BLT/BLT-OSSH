@@ -37,7 +37,7 @@ OSSH (Open Source Sorting Hat) is a magical tool that analyzes your GitHub profi
 
 ## Architecture Overview
 
-BLT-OSSH (Open Source Sorting Hat) is a **recommendation engine** designed to help contributors discover open-source projects that match their skills and interests. It analyzes GitHub profiles and repository metadata to recommend projects where contributors can meaningfully participate.
+BLT-OSSH (Open Source Sorting Hat) helps contributors discover open-source projects that match their skills and interests by analyzing GitHub profiles and repository metadata. It analyzes GitHub profiles and repository metadata to recommend projects where contributors can meaningfully participate.
 
 Within the **BLT (Bug Logging Tool) ecosystem**, OSSH acts as a **discovery layer** that helps users find relevant repositories, communities, and learning resources. It complements the main [BLT platform](https://github.com/OWASP-BLT/BLT) by focusing on contributor onboarding and project matching rather than bug reporting.
 
@@ -208,127 +208,6 @@ The system interacts with the **GitHub REST API** to retrieve user and repositor
 - **No authentication required** for basic usage — the app works with unauthenticated API calls
 - For higher rate limits or private repository access, you could add a GitHub token; this is not currently implemented in the static frontend
 
-## Usage
-
-### For Users
-1. **Analyze Your Profile**
-   - Visit OSSH homepage
-   - Enter your GitHub username
-   - Click "Find My Projects"
-   - Explore personalized recommendations
-
-2. **Join the Community**
-   - After analysis, click "Create My Community Profile"
-   - Review pre-filled data (username, bio, skills)
-   - Add additional information (interests, looking for, social links)
-   - Submit to create your profile
-
-3. **Discover Developers**
-   - Visit the Community page
-   - Browse developer profiles
-   - Filter by experience level
-   - Search by name, skills, or location
-   - Connect via GitHub, website, or social media
-
-### For Contributors
-See [Contribution Guidelines](#contribution-guidelines) for:
-- Adding new project recommendations
-- Improving the matching algorithm
-- Enhancing the UI/UX
-- Adding new features
-
-## Features in Detail
-
-### Smart Matching Algorithm
-- Analyzes your repository languages and frequency
-- Considers your starred repos and topics
-- Matches you with trending and well-maintained projects
-- Weighs factors like activity, stars, and relevance
-
-### Community Features
-- **Profile Cards**: Rich cards with avatar, bio, skills, interests
-- **Experience Badges**: Visual indicators (Beginner, Intermediate, Advanced, Expert)
-- **Search & Filter**: Find developers by name, username, skills, or experience level
-- **Real-time Stats**: Community statistics (member count, languages, countries)
-- **Social Integration**: Connect via GitHub, website, Twitter, LinkedIn
-- **GitHub-Powered**: Uses GitHub Issues as database for profiles
-
-### Recommendation Categories
-- **Projects**: Open source repositories matching your tech stack
-- **Communities**: Developer communities and organizations
-- **Articles**: Learning resources and documentation
-- **Discussions**: Forums, Discord servers, and chat platforms
-
-## Community Profile Template
-
-Profiles are created as GitHub Issues using a structured template with these fields:
-
-- **GitHub Username** (required) - Your GitHub handle
-- **Display Name** (required) - How you want to be called
-- **Bio** (required) - Brief description about yourself
-- **Experience Level** (required) - Beginner, Intermediate, Advanced, or Expert
-- **Areas of Interest** (checkboxes) - Web Dev, Mobile, AI/ML, Security, DevOps, etc.
-- **Skills & Technologies** (required) - Comma-separated list (e.g., JavaScript, Python, React)
-- **Looking For** (required) - Your goals (e.g., "Mentorship in AI", "Open source collaborations")
-- **Location** (optional) - City, Country
-- **Website/Portfolio** (optional) - Your personal website
-- **Twitter** (optional) - Handle without @
-- **LinkedIn** (optional) - LinkedIn username
-
-### Pre-filled Profile Creation
-After analyzing your GitHub profile, the system automatically pre-fills:
-- Your GitHub username
-- Display name from your GitHub profile
-- Bio from GitHub (or primary language as fallback)
-- Skills extracted from your most-used languages
-- Looking for section with smart suggestions
-
-## Contribution Guidelines
-
-Contributions are welcome! Follow these steps to contribute:
-
-### 1. Create a Branch
-
-```bash
-git checkout -b feature/your-feature-name
-```
-
-Use descriptive branch names: `feature/`, `fix/`, `docs/` prefixes help maintainers understand the change type.
-
-### 2. Make Your Changes
-
-- Edit files in `index.html`, `community.html`, `js/app.js`, or add new assets
-- Follow existing code style and formatting
-- Ensure the app works when served locally
-
-### 3. Run Tests Before Submitting
-
-```bash
-npm test
-```
-
-(Currently a placeholder; add tests as the project grows.)
-
-### 4. Open a Pull Request
-
-1. Push your branch: `git push origin feature/your-feature-name`
-2. Open a PR on GitHub against the `main` branch
-3. Provide a clear description of what changed and why
-4. Link any related issues if applicable
-
-### Code Style
-
-- **JavaScript**: Use consistent formatting; the project uses standard ES6+ syntax
-- **HTML**: Follow existing indentation and structure
-- **Markdown**: Use proper headers and formatting for documentation
-
-### What to Contribute
-
-- **New project recommendations** — Add or improve projects in the recommendation data
-- **Matching algorithm** — Improve `buildRecommendations()` in `js/app.js`
-- **UI/UX enhancements** — Accessibility, responsive design, dark mode
-- **Documentation** — README, ARCHITECTURE.md, or inline comments
-
 ## License
 This project is part of OWASP BLT and follows its licensing terms.
 
@@ -339,20 +218,6 @@ This project is part of OWASP BLT and follows its licensing terms.
 - [Create Your Profile](https://github.com/OWASP-BLT/BLT-OSSH/issues/new?template=user_profile.yml)
 - [Browse Community](./community.html)
 
-## Roadmap
-- [ ] AI-powered project recommendations using ML
-- [ ] Profile verification badges
-- [ ] Direct messaging between community members
-- [ ] Project collaboration matching
-- [ ] Mentorship program integration
-- [ ] Event calendar for community meetups
-- [ ] Skill endorsements
-- [ ] Advanced search with tags
-
-## Acknowledgments
-- OWASP Foundation
-- BLT Community
-- All contributors
 
 ---
 Made with ❤️ by the OWASP BLT Community
