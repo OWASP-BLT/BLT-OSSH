@@ -1,3 +1,35 @@
+// GitHub API cache: reduces rate limit hits (60 req/hr unauthenticated) and improves load speed.
+// Cache expires after 10 minutes; expired entries are removed on read. If localStorage is
+// unavailable (private mode, quota exceeded), cache is skipped and API is called normally.
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+function getCachedData(key) {
+    try {
+        const cached = localStorage.getItem(key);
+        if (!cached) return null;
+        const parsed = JSON.parse(cached);
+        if (!parsed || typeof parsed.timestamp !== 'number' || parsed.data === undefined) {
+            try { localStorage.removeItem(key); } catch (_) {}
+            return null;
+        }
+        if (Date.now() - parsed.timestamp > CACHE_TTL) {
+            try { localStorage.removeItem(key); } catch (_) {}
+            return null;
+        }
+        return parsed.data;
+    } catch (err) {
+        try { localStorage.removeItem(key); } catch (_) {}
+        return null;
+    }
+}
+
+function setCachedData(key, data) {
+    try {
+        localStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data }));
+    } catch (err) {
+        console.warn('Cache write failed (storage full or unavailable):', err);
+    }
+}
 
 // Dark mode toggle
 const darkToggle = document.getElementById('dark-toggle');
@@ -69,29 +101,38 @@ form.addEventListener('submit', async (e) => {
 
         const userData = await userResponse.json();
 
-        // Fetch user repositories
-        const reposResponse = await fetch(
-            `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
-            { headers: { Accept: 'application/vnd.github+json' } }
-        );
-        const reposData = reposResponse.ok ? await reposResponse.json() : [];
-
-        // Fetch contributor activity events for enhanced recommendations.
-        // Events API provides PushEvent (commits), PullRequestEvent, IssuesEvent
-        // to compute an activity score that helps rank repositories.
-        let eventsData = [];
-        try {
-            const eventsResponse = await fetch(
-                `https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=100`,
-                { headers: { Accept: 'application/vnd.github+json' } }
+        // Repos: check cache first to avoid rate limits and speed up repeat lookups.
+        let reposData = getCachedData(`github_repos_${username}`);
+        if (!Array.isArray(reposData)) {
+            const reposResponse = await fetch(
+                `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
+                { headers: { Accept: 'application/vnd.github.mercy-preview+json' } }
             );
-            if (eventsResponse.ok) {
-                eventsData = await eventsResponse.json();
+            reposData = reposResponse.ok ? await reposResponse.json() : [];
+            if (Array.isArray(reposData)) {
+                setCachedData(`github_repos_${username}`, reposData);
             }
-        } catch (err) {
-            // Graceful failure: continue without events; activity score will be 0
-            console.warn('Could not fetch contributor events:', err);
         }
+
+        // Events: check cache first. Caching reduces API calls and prevents rate limit errors.
+        let eventsData = getCachedData(`github_events_${username}`);
+        if (!Array.isArray(eventsData)) {
+            try {
+                const eventsResponse = await fetch(
+                    `https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=100`,
+                    { headers: { Accept: 'application/vnd.github+json' } }
+                );
+                eventsData = eventsResponse.ok ? await eventsResponse.json() : [];
+                if (Array.isArray(eventsData)) {
+                    setCachedData(`github_events_${username}`, eventsData);
+                }
+            } catch (err) {
+                eventsData = [];
+                console.warn('Could not fetch contributor events:', err);
+            }
+        }
+        eventsData = Array.isArray(eventsData) ? eventsData : [];
+        reposData = Array.isArray(reposData) ? reposData : [];
 
         // Build and display results
         const data = buildRecommendations(userData, reposData, eventsData);
@@ -130,6 +171,17 @@ function buildRecommendations(userData, repos, eventsData = []) {
         .slice(0, 10);
     const topLanguages = languages.slice(0, 3);
 
+    // Contributor interests: topics from their repos. Used to match recommended repos.
+    const contributorTopics = new Set();
+    (repos || []).forEach(repo => {
+        if (repo && Array.isArray(repo.topics)) {
+            repo.topics.forEach(t => contributorTopics.add(t));
+        }
+    });
+    const relevantTopics = contributorTopics.size > 0
+        ? Array.from(contributorTopics)
+        : ['security', 'bug-bounty', 'opensource', 'javascript', 'python', 'web', 'ai', 'machine-learning'];
+
     const github_stats = {
         username: userData.login,
         name: userData.name || userData.login,
@@ -144,13 +196,23 @@ function buildRecommendations(userData, repos, eventsData = []) {
         activity_breakdown: { pushEvents, pullRequestEvents, issuesEvents }
     };
 
-    // Ranking: finalScore = (stars * 0.6) + (activityScore * 0.2) + (languageScore * 0.2)
-    // languageScore = 5 if repo matches contributor's topLanguages, else 0.
-    // Repos in familiar languages rank higher, improving contributor–project matching.
+    // topicScore: repos with topics matching contributor interests rank higher.
+    // Handles missing/empty repo.topics safely. Improves relevance for OWASP/security contributors.
+    function getTopicScore(repo) {
+        if (!repo || !Array.isArray(repo.topics) || repo.topics.length === 0) return 0;
+        let score = 0;
+        repo.topics.forEach(topic => {
+            if (relevantTopics.includes(topic)) score += 2;
+        });
+        return score;
+    }
+
+    // Ranking: (stars * 0.5) + (activityScore * 0.2) + (languageScore * 0.2) + (topicScore * 0.1)
     const getFinalScore = (repo) => {
         const stars = repo.stargazers_count || 0;
-        const languageScore = (topLanguages.length && repo.language && topLanguages.includes(repo.language)) ? 5 : 0;
-        return (stars * 0.6) + (activityScore * 0.2) + (languageScore * 0.2);
+        const languageScore = (topLanguages.length && repo && repo.language && topLanguages.includes(repo.language)) ? 5 : 0;
+        const topicScore = getTopicScore(repo);
+        return (stars * 0.5) + (activityScore * 0.2) + (languageScore * 0.2) + (topicScore * 0.1);
     };
     const recommended_repos = repos
         .filter(r => !r.fork && r.description)
@@ -160,7 +222,8 @@ function buildRecommendations(userData, repos, eventsData = []) {
             name: r.full_name,
             description: r.description,
             stars: r.stargazers_count,
-            url: r.html_url
+            url: r.html_url,
+            topics: Array.isArray(r.topics) ? r.topics : []
         }));
 
     const recommended_communities = [
@@ -278,6 +341,7 @@ function displayResults(data) {
     const reposContainer = document.getElementById('recommended-repos');
     reposContainer.innerHTML = '';
     (data.recommended_repos || []).forEach(repo => {
+        const topics = repo.topics && repo.topics.length > 0 ? repo.topics.join(', ') : 'None';
         const repoCard = document.createElement('div');
         repoCard.className = 'surface-card rounded-xl p-5 hover:shadow-lg transition';
         repoCard.innerHTML = `
@@ -287,7 +351,10 @@ function displayResults(data) {
             <i class="fas fa-star"></i> ${repo.stars}
         </span>
     </div>
-    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${escapeHtml(repo.description)}</p>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">${escapeHtml(repo.description)}</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+        <span class="font-semibold">Topics:</span> ${escapeHtml(topics)}
+    </p>
     <a href="${escapeHtml(repo.url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-red-600 dark:text-red-400 font-semibold text-sm hover:underline">
         <i class="fab fa-github"></i> View Repository
     </a>
