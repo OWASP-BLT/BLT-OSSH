@@ -74,8 +74,25 @@ form.addEventListener('submit', async (e) => {
         );
         const reposData = reposResponse.ok ? await reposResponse.json() : [];
 
+        // Fetch contributor activity events for enhanced recommendations.
+        // Events API provides PushEvent (commits), PullRequestEvent, IssuesEvent
+        // to compute an activity score that helps rank repositories.
+        let eventsData = [];
+        try {
+            const eventsResponse = await fetch(
+                `https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=100`,
+                { headers: { Accept: 'application/vnd.github+json' } }
+            );
+            if (eventsResponse.ok) {
+                eventsData = await eventsResponse.json();
+            }
+        } catch (err) {
+            // Graceful failure: continue without events; activity score will be 0
+            console.warn('Could not fetch contributor events:', err);
+        }
+
         // Build and display results
-        const data = buildRecommendations(userData, reposData);
+        const data = buildRecommendations(userData, reposData, eventsData);
         console.log("user recommendation ", data);
 
         displayResults(data);
@@ -91,17 +108,26 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
-function buildRecommendations(userData, repos) {
-    // Extract languages from repos (weighted by frequency)
+function buildRecommendations(userData, repos, eventsData = []) {
+    // Contributor activity signals: compute score from GitHub events
+    // PushEvent = commits (weight 2), PullRequestEvent = PRs (weight 3), IssuesEvent = issues (weight 1)
+    const pushEvents = eventsData.filter(e => e.type === 'PushEvent').length;
+    const pullRequestEvents = eventsData.filter(e => e.type === 'PullRequestEvent').length;
+    const issuesEvents = eventsData.filter(e => e.type === 'IssuesEvent').length;
+    const activityScore = (pushEvents * 2) + (pullRequestEvents * 3) + (issuesEvents * 1);
+
+    // Contributor languages: detect from repository language frequency.
+    // Repos with language metadata are counted; top 3 by frequency become topLanguages.
     const languageCounts = {};
-    repos.forEach(repo => {
-        if (repo.language) {
+    (repos || []).forEach(repo => {
+        if (repo && repo.language) {
             languageCounts[repo.language] = (languageCounts[repo.language] || 0) + 1;
         }
     });
     const languages = Object.keys(languageCounts)
         .sort((a, b) => languageCounts[b] - languageCounts[a])
         .slice(0, 10);
+    const topLanguages = languages.slice(0, 3);
 
     const github_stats = {
         username: userData.login,
@@ -111,13 +137,27 @@ function buildRecommendations(userData, repos) {
         public_repos: userData.public_repos,
         followers: userData.followers,
         following: userData.following,
-        languages
+        languages,
+        top_languages: topLanguages,
+        activity_score: activityScore,
+        activity_breakdown: { pushEvents, pullRequestEvents, issuesEvents }
     };
 
-    // Top non-fork repos sorted by stars
+    // Ranking: finalScore = (stars * 0.6) + (activityScore * 0.2) + (languageScore * 0.2)
+    // languageScore = LANGUAGE_MATCH_BONUS if repo matches contributor's topLanguages, else 0.
+    // Repos in familiar languages rank higher, improving contributor–project matching.
+    // LANGUAGE_MATCH_BONUS is scaled so a language match contributes ~1 point (0.2 weight × 5 bonus),
+    // roughly equivalent to one star in the overall ranking.
+    const LANGUAGE_MATCH_BONUS = 5;
+    const activityContribution = activityScore * 0.2;
+    const getFinalScore = (repo) => {
+        const stars = repo.stargazers_count || 0;
+        const languageScore = (topLanguages.length && repo.language && topLanguages.includes(repo.language)) ? LANGUAGE_MATCH_BONUS : 0;
+        return (stars * 0.6) + activityContribution + (languageScore * 0.2);
+    };
     const recommended_repos = repos
         .filter(r => !r.fork && r.description)
-        .sort((a, b) => b.stargazers_count - a.stargazers_count)
+        .sort((a, b) => getFinalScore(b) - getFinalScore(a))
         .slice(0, 6)
         .map(r => ({
             name: r.full_name,
@@ -215,6 +255,19 @@ function displayResults(data) {
     document.getElementById('user-repos').textContent = githubStats.public_repos || 0;
     document.getElementById('user-followers').textContent = githubStats.followers || 0;
     document.getElementById('user-following').textContent = githubStats.following || 0;
+
+    // Display Contributor Activity Score (from PushEvent, PullRequestEvent, IssuesEvent)
+    const activityScoreEl = document.getElementById('contributor-activity-score');
+    if (activityScoreEl) {
+        activityScoreEl.textContent = githubStats.activity_score ?? 0;
+    }
+
+    // Display Top Languages (contributor's main languages used for language match scoring)
+    const topLanguagesEl = document.getElementById('top-languages-list');
+    if (topLanguagesEl) {
+        const topLangs = githubStats.top_languages || [];
+        topLanguagesEl.textContent = topLangs.length ? topLangs.join(', ') : 'No language data';
+    }
 
     // Display languages
     const languagesContainer = document.getElementById('user-languages');
