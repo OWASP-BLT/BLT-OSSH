@@ -41,7 +41,14 @@ BLT-OSSH (Open Source Sorting Hat) helps contributors discover open-source proje
 
 Within the **BLT (Bug Logging Tool) ecosystem**, OSSH acts as a **discovery layer** that helps users find relevant repositories, communities, and learning resources. It complements the main [BLT platform](https://github.com/OWASP-BLT/BLT) by focusing on contributor onboarding and project matching rather than bug reporting.
 
-Like the Sorting Hat, OSSH is designed to eventually sort contributors into four houses based on their profile: **Buggleton**, **Cybermoose**, **Bufferbit**, and **Darkram**.
+Like the Sorting Hat, OSSH is designed to eventually sort contributors into four houses:
+
+| House | Focus |
+|-------|-------|
+| **Buggleton** | Bug hunting & security |
+| **Cybermoose** | Infrastructure & DevOps |
+| **Bufferbit** | Web & application development |
+| **Darkram** | Low-level & systems programming |
 
 ### Key Architectural Decisions
 
