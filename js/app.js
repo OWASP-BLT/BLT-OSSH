@@ -127,58 +127,32 @@ function buildRecommendations(userData, repos) {
         }));
 
     const recommended_communities = [
-        {
-            name: 'OWASP BLT',
-            description: 'Bug Logging Tool — an open source security platform',
-            members: '1,000+',
-            url: 'https://github.com/OWASP-BLT/BLT'
-        },
-        {
-            name: 'OWASP Foundation',
-            description: 'The Open Web Application Security Project',
-            members: '50,000+',
-            url: 'https://owasp.org/'
-        }
+        { name: 'OWASP BLT', description: 'Bug Logging Tool — open source security platform', members: '1,000+', url: 'https://github.com/OWASP-BLT/BLT' },
+        { name: 'OWASP Foundation', description: 'The Open Web Application Security Project', members: '50,000+', url: 'https://owasp.org/' },
+        { name: 'FreeCodeCamp', description: 'Learn to code with free online courses and projects', members: '400,000+', url: 'https://www.freecodecamp.org/' },
+        { name: 'Hacktoberfest', description: 'Month-long celebration of open source', members: '100,000+', url: 'https://hacktoberfest.com/' },
+        { name: 'First Timers Only', description: 'Beginner-friendly open source projects', members: '10,000+', url: 'https://www.firsttimersonly.com/' },
+        { name: 'Good First Issue', description: 'Curated list of beginner-friendly issues', members: '5,000+', url: 'https://goodfirstissue.dev/' }
     ];
 
     const recommended_articles = [
-        {
-            title: 'How to Contribute to Open Source',
-            category: 'Open Source',
-            url: 'https://opensource.guide/how-to-contribute/'
-        },
-        {
-            title: 'GitHub Skills',
-            category: 'GitHub',
-            url: 'https://skills.github.com/'
-        }
+        { title: 'How to Contribute to Open Source', category: 'Open Source', url: 'https://opensource.guide/how-to-contribute/' },
+        { title: 'GitHub Skills', category: 'GitHub', url: 'https://skills.github.com/' },
+        { title: 'First Contributions', category: 'Getting Started', url: 'https://firstcontributions.github.io/' },
+        { title: 'OWASP Top 10', category: 'Security', url: 'https://owasp.org/www-project-top-ten/' },
+        { title: 'The Art of Readme', category: 'Documentation', url: 'https://github.com/hackergirlz/Art-of-Readme' },
+        { title: 'Choose a License', category: 'Licensing', url: 'https://choosealicense.com/' }
     ];
 
     const recommended_discussion_channels = [
-        {
-            name: 'BLT Discussions',
-            platform: 'GitHub',
-            icon: 'fa-brands fa-github',
-            url: 'https://github.com/OWASP-BLT/BLT/discussions'
-        },
-        {
-            name: 'OWASP Slack',
-            platform: 'Slack',
-            icon: 'fa-brands fa-slack',
-            url: 'https://owasp.org/slack/invite'
-        },
-        {
-            name: 'Dev Community',
-            platform: 'DEV.to',
-            icon: 'fa-brands fa-dev',
-            url: 'https://dev.to/'
-        },
-        {
-            name: 'Stack Overflow',
-            platform: 'Stack Overflow',
-            icon: 'fa-brands fa-stack-overflow',
-            url: 'https://stackoverflow.com/'
-        }
+        { name: 'BLT Discussions', platform: 'GitHub', icon: 'fa-brands fa-github', url: 'https://github.com/OWASP-BLT/BLT/discussions' },
+        { name: 'OWASP Slack', platform: 'Slack', icon: 'fa-brands fa-slack', url: 'https://owasp.org/slack/invite' },
+        { name: 'Dev Community', platform: 'DEV.to', icon: 'fa-brands fa-dev', url: 'https://dev.to/' },
+        { name: 'Stack Overflow', platform: 'Stack Overflow', icon: 'fa-brands fa-stack-overflow', url: 'https://stackoverflow.com/' },
+        { name: 'Discord Developers', platform: 'Discord', icon: 'fa-brands fa-discord', url: 'https://discord.gg/discord-developers' },
+        { name: 'Reddit r/opensource', platform: 'Reddit', icon: 'fa-brands fa-reddit', url: 'https://www.reddit.com/r/opensource/' },
+        { name: 'GitHub Discussions', platform: 'GitHub', icon: 'fa-brands fa-github', url: 'https://github.com/community/community/discussions' },
+        { name: 'Open Source Friday', platform: 'GitHub', icon: 'fa-brands fa-github', url: 'https://opensourcefriday.com/' }
     ];
 
     return {
