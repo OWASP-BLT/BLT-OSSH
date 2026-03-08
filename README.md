@@ -54,7 +54,7 @@ Like the Sorting Hat, OSSH is designed to eventually sort contributors into four
 
 - **No backend** — All logic runs in the browser. GitHub API is called directly from the client.
 - **Static deployment** — Hosted on GitHub Pages with no server-side dependencies.
-- **GitHub Issues as database** — Community profiles are stored as GitHub Issues with the `profile` label, enabling moderation and editing without a database.
+- **GitHub Issues as a database** — Community profiles are stored as GitHub Issues with the `profile` label, enabling moderation and editing without a database.
 
 ## How Profiles Work
 
