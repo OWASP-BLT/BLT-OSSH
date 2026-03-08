@@ -718,14 +718,16 @@
 
       // Display House Badge
       const houseBadge = document.getElementById('house-badge');
-      if (data.house) {
-        houseBadge.className = `inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold border ${data.house.color}`;
-        houseBadge.title = data.house.desc;
-        document.getElementById('house-icon').textContent = data.house.icon;
-        document.getElementById('house-name').textContent = data.house.name;
-        houseBadge.classList.remove('hidden');
-      } else {
-        houseBadge.classList.add('hidden');
+      if (houseBadge) {
+        if (data.house) {
+          houseBadge.className = `inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold border ${data.house.color}`;
+          houseBadge.title = data.house.desc;
+          document.getElementById('house-icon').textContent = data.house.icon;
+          document.getElementById('house-name').textContent = data.house.name;
+          houseBadge.classList.remove('hidden');
+        } else {
+          houseBadge.classList.add('hidden');
+        }
       }
       document.getElementById('user-repos').textContent = githubStats.public_repos || 0;
       document.getElementById('user-followers').textContent = githubStats.followers || 0;
