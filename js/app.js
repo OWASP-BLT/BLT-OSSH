@@ -141,11 +141,17 @@ function assignHouse(userData, repos, languages) {
             if (languages.includes(lang)) scores[houseId] += 3;
         });
         house.keywords.forEach(kw => {
-            if (text.includes(kw)) scores[houseId] += 2;
+            const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            if (regex.test(text)) scores[houseId] += 2;
         });
     });
 
-    const winner = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+    // Sort by score desc, then by house id alphabetically for deterministic tie-breaking
+    const sorted = Object.entries(scores).sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return a[0].localeCompare(b[0]);
+    });
+    const winner = sorted[0];
     const house = HOUSES[winner[0]];
     return { id: winner[0], ...house, score: winner[1] };
 }

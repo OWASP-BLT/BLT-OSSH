@@ -550,7 +550,10 @@
         .sort((a, b) => languageCounts[b] - languageCounts[a])
         .slice(0, 10);
 
-      const house = assignHouse(userData, repos, languages);
+      // assignHouse is defined in app.js (loaded above); fallback to null if missing
+      const house = (typeof assignHouse === 'function')
+        ? assignHouse(userData, repos, languages)
+        : null;
 
       const github_stats = {
         username: userData.login,
