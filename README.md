@@ -35,6 +35,25 @@ OSSH (Open Source Sorting Hat) is a magical tool that analyzes your GitHub profi
 - **APIs**: GitHub REST API v3 (fetched directly from browser)
 - **Deployment**: GitHub Pages
 
+## Architecture Overview
+
+BLT-OSSH (Open Source Sorting Hat) helps contributors discover open-source projects that match their skills and interests by analyzing GitHub profiles and repository metadata. It analyzes GitHub profiles and repository metadata to recommend projects where contributors can meaningfully participate.
+
+Within the **BLT (Bug Logging Tool) ecosystem**, OSSH acts as a **discovery layer** that helps users find relevant repositories, communities, and learning resources. It complements the main [BLT platform](https://github.com/OWASP-BLT/BLT) by focusing on contributor onboarding and project matching rather than bug reporting.
+
+### How It Works
+
+1. **User submits a GitHub username** — The user enters their GitHub handle on the OSSH homepage.
+2. **OSSH fetches and analyzes** — The frontend calls the GitHub API to retrieve user profile, repositories, languages, and topics.
+3. **Matching logic runs client-side** — The `buildRecommendations()` function in `js/app.js` analyzes repository languages, contribution patterns, and metadata to identify relevant projects.
+4. **Recommendations are displayed** — Results include recommended repositories, communities, articles, and discussion channels.
+
+### Key Architectural Decisions
+
+- **No backend** — All logic runs in the browser. GitHub API is called directly from the client.
+- **Static deployment** — Hosted on GitHub Pages with no server-side dependencies.
+- **GitHub Issues as database** — Community profiles are stored as GitHub Issues with the `profile` label, enabling moderation and editing without a database.
+
 ## How Profiles Work
 
 ### Simple & Direct
@@ -52,18 +71,55 @@ OSSH (Open Source Sorting Hat) is a magical tool that analyzes your GitHub profi
 
 ## Getting Started
 
+## Local Development
+
+This section explains how contributors can run BLT-OSSH locally for development and testing.
+
 ### Prerequisites
-- A modern web browser (no server-side dependencies)
 
-### Local Development
-Open `index.html` directly in your browser, or serve it with any static file server:
+- **Python 3.x** or **Node.js 18+** — For running a local static file server
+- **Git** — For cloning the repository
+- **Modern web browser** — Chrome, Firefox, Safari, or Edge
 
+No environment variables or configuration files are required for basic local development. The app uses the public GitHub API without authentication.
+
+### Setup
+
+**1. Clone the repository**
 ```bash
-# Python built-in server
+git clone https://github.com/OWASP-BLT/BLT-OSSH.git
+cd BLT-OSSH
+```
+
+**2. Serve the application locally**
+
+Option A — Using Python (recommended):
+```bash
 python -m http.server 8000
 ```
 
-The application will be available at `http://localhost:8000`
+Option B — Using npm:
+```bash
+npm run dev
+```
+(This runs `python -m http.server 8000` under the hood)
+
+**3. Open in browser**
+
+Visit `http://localhost:8000` to load the main analysis page. Visit `http://localhost:8000/community.html` for the Community profiles page.
+
+### Configuration
+
+- **No `.env` or config files** — The app is fully static and requires no environment variables
+- **CORS** — GitHub API allows requests from any origin; no CORS configuration needed for local development
+
+### Testing Workflow
+
+1. Run the local server as above
+2. Enter a GitHub username and click "Find My Projects"
+3. Verify recommendations display correctly
+4. Test the "Create My Community Profile" flow (redirects to GitHub Issues)
+5. Open `community.html` and verify profile fetching works
 
 ### Deployment
 Pushes to the `main` branch automatically deploy to GitHub Pages via the workflow at `.github/workflows/deploy.yml`.
@@ -121,99 +177,36 @@ BLT-OSSH/
   - Social links and contact info
 - Real-time search and filtering
 
-## GitHub API
+## API Usage
 
-The site calls the GitHub REST API directly from the browser (no backend required):
+The system interacts with the **GitHub REST API** to retrieve user and repository data. All API calls are made directly from the browser (no backend required).
 
-- `GET https://api.github.com/users/{username}` — User profile data
-- `GET https://api.github.com/users/{username}/repos` — User repository list
-- `GET https://api.github.com/repos/{owner}/{repo}/issues?labels=profile&state=open` — Community profiles
+### Endpoints Used
 
-> **Note**: Unauthenticated requests are limited to 60 requests/hour per IP. This is sufficient for casual use.
+| Endpoint | Purpose |
+|----------|---------|
+| `GET https://api.github.com/users/{username}` | User profile data (name, bio, avatar, follower counts) |
+| `GET https://api.github.com/users/{username}/repos?sort=updated&per_page=100` | User repository list with languages and topics |
+| `GET https://api.github.com/repos/{owner}/{repo}/issues?labels=profile&state=open` | Community profiles (stored as GitHub Issues) |
 
-## Usage
+### Data Fetched
 
-### For Users
-1. **Analyze Your Profile**
-   - Visit OSSH homepage
-   - Enter your GitHub username
-   - Click "Find My Projects"
-   - Explore personalized recommendations
+- **User profile** — Avatar, bio, public repos count, followers, following
+- **Repositories** — Names, descriptions, languages, stars, fork status
+- **Languages used** — Extracted from repository metadata and weighted by frequency
+- **Community profiles** — Parsed from issue bodies on the Community page
 
-2. **Join the Community**
-   - After analysis, click "Create My Community Profile"
-   - Review pre-filled data (username, bio, skills)
-   - Add additional information (interests, looking for, social links)
-   - Submit to create your profile
+### Rate Limits
 
-3. **Discover Developers**
-   - Visit the Community page
-   - Browse developer profiles
-   - Filter by experience level
-   - Search by name, skills, or location
-   - Connect via GitHub, website, or social media
+- **Unauthenticated requests**: 60 requests/hour per IP address
+- **Authenticated requests**: 5,000 requests/hour (if you add a token — not required for basic use)
+- The app typically makes 2–3 requests per profile analysis, so casual use stays within limits
+- If rate limited, the app displays: *"GitHub API rate limit exceeded. Please wait a few minutes and try again."*
 
-### For Contributors
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
-- Adding new project recommendations
-- Improving the matching algorithm
-- Enhancing the UI/UX
-- Adding new features
+### Authentication
 
-## Features in Detail
-
-### Smart Matching Algorithm
-- Analyzes your repository languages and frequency
-- Considers your starred repos and topics
-- Matches you with trending and well-maintained projects
-- Weighs factors like activity, stars, and relevance
-
-### Community Features
-- **Profile Cards**: Rich cards with avatar, bio, skills, interests
-- **Experience Badges**: Visual indicators (Beginner, Intermediate, Advanced, Expert)
-- **Search & Filter**: Find developers by name, username, skills, or experience level
-- **Real-time Stats**: Community statistics (member count, languages, countries)
-- **Social Integration**: Connect via GitHub, website, Twitter, LinkedIn
-- **GitHub-Powered**: Uses GitHub Issues as database for profiles
-
-### Recommendation Categories
-- **Projects**: Open source repositories matching your tech stack
-- **Communities**: Developer communities and organizations
-- **Articles**: Learning resources and documentation
-- **Discussions**: Forums, Discord servers, and chat platforms
-
-## Community Profile Template
-
-Profiles are created as GitHub Issues using a structured template with these fields:
-
-- **GitHub Username** (required) - Your GitHub handle
-- **Display Name** (required) - How you want to be called
-- **Bio** (required) - Brief description about yourself
-- **Experience Level** (required) - Beginner, Intermediate, Advanced, or Expert
-- **Areas of Interest** (checkboxes) - Web Dev, Mobile, AI/ML, Security, DevOps, etc.
-- **Skills & Technologies** (required) - Comma-separated list (e.g., JavaScript, Python, React)
-- **Looking For** (required) - Your goals (e.g., "Mentorship in AI", "Open source collaborations")
-- **Location** (optional) - City, Country
-- **Website/Portfolio** (optional) - Your personal website
-- **Twitter** (optional) - Handle without @
-- **LinkedIn** (optional) - LinkedIn username
-
-### Pre-filled Profile Creation
-After analyzing your GitHub profile, the system automatically pre-fills:
-- Your GitHub username
-- Display name from your GitHub profile
-- Bio from GitHub (or primary language as fallback)
-- Skills extracted from your most-used languages
-- Looking for section with smart suggestions
-
-## Contributing
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+- **No authentication required** for basic usage — the app works with unauthenticated API calls
+- For higher rate limits or private repository access, you could add a GitHub token; this is not currently implemented in the static frontend
 
 ## License
 This project is part of OWASP BLT and follows its licensing terms.
@@ -225,20 +218,6 @@ This project is part of OWASP BLT and follows its licensing terms.
 - [Create Your Profile](https://github.com/OWASP-BLT/BLT-OSSH/issues/new?template=user_profile.yml)
 - [Browse Community](./community.html)
 
-## Roadmap
-- [ ] AI-powered project recommendations using ML
-- [ ] Profile verification badges
-- [ ] Direct messaging between community members
-- [ ] Project collaboration matching
-- [ ] Mentorship program integration
-- [ ] Event calendar for community meetups
-- [ ] Skill endorsements
-- [ ] Advanced search with tags
-
-## Acknowledgments
-- OWASP Foundation
-- BLT Community
-- All contributors
 
 ---
 Made with ❤️ by the OWASP BLT Community

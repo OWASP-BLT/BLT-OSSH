@@ -1,3 +1,35 @@
+// GitHub API cache: reduces rate limit hits (60 req/hr unauthenticated) and improves load speed.
+// Cache expires after 10 minutes; expired entries are removed on read. If localStorage is
+// unavailable (private mode, quota exceeded), cache is skipped and API is called normally.
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+function getCachedData(key) {
+    try {
+        const cached = localStorage.getItem(key);
+        if (!cached) return null;
+        const parsed = JSON.parse(cached);
+        if (!parsed || typeof parsed.timestamp !== 'number' || parsed.data === undefined) {
+            try { localStorage.removeItem(key); } catch (_) {}
+            return null;
+        }
+        if (Date.now() - parsed.timestamp > CACHE_TTL) {
+            try { localStorage.removeItem(key); } catch (_) {}
+            return null;
+        }
+        return parsed.data;
+    } catch (err) {
+        try { localStorage.removeItem(key); } catch (_) {}
+        return null;
+    }
+}
+
+function setCachedData(key, data) {
+    try {
+        localStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data }));
+    } catch (err) {
+        console.warn('Cache write failed (storage full or unavailable):', err);
+    }
+}
 
 // Dark mode toggle
 const darkToggle = document.getElementById('dark-toggle');
@@ -67,15 +99,41 @@ form.addEventListener('submit', async (e) => {
 
         const userData = await userResponse.json();
 
-        // Fetch user repositories
-        const reposResponse = await fetch(
-            `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
-            { headers: { Accept: 'application/vnd.github+json' } }
-        );
-        const reposData = reposResponse.ok ? await reposResponse.json() : [];
+        // Repos: check cache first to avoid rate limits and speed up repeat lookups.
+        let reposData = getCachedData(`github_repos_${username}`);
+        if (!Array.isArray(reposData)) {
+            const reposResponse = await fetch(
+                `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
+                { headers: { Accept: 'application/vnd.github.mercy-preview+json' } }
+            );
+            reposData = reposResponse.ok ? await reposResponse.json() : [];
+            if (Array.isArray(reposData)) {
+                setCachedData(`github_repos_${username}`, reposData);
+            }
+        }
+
+        // Events: check cache first. Caching reduces API calls and prevents rate limit errors.
+        let eventsData = getCachedData(`github_events_${username}`);
+        if (!Array.isArray(eventsData)) {
+            try {
+                const eventsResponse = await fetch(
+                    `https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=100`,
+                    { headers: { Accept: 'application/vnd.github+json' } }
+                );
+                eventsData = eventsResponse.ok ? await eventsResponse.json() : [];
+                if (Array.isArray(eventsData)) {
+                    setCachedData(`github_events_${username}`, eventsData);
+                }
+            } catch (err) {
+                eventsData = [];
+                console.warn('Could not fetch contributor events:', err);
+            }
+        }
+        eventsData = Array.isArray(eventsData) ? eventsData : [];
+        reposData = Array.isArray(reposData) ? reposData : [];
 
         // Build and display results
-        const data = buildRecommendations(userData, reposData);
+        const data = buildRecommendations(userData, reposData, eventsData);
         console.log("user recommendation ", data);
 
         displayResults(data);
@@ -91,17 +149,37 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
-function buildRecommendations(userData, repos) {
-    // Extract languages from repos (weighted by frequency)
+function buildRecommendations(userData, repos, eventsData = []) {
+    // Contributor activity signals: compute score from GitHub events
+    // PushEvent = commits (weight 2), PullRequestEvent = PRs (weight 3), IssuesEvent = issues (weight 1)
+    const pushEvents = eventsData.filter(e => e.type === 'PushEvent').length;
+    const pullRequestEvents = eventsData.filter(e => e.type === 'PullRequestEvent').length;
+    const issuesEvents = eventsData.filter(e => e.type === 'IssuesEvent').length;
+    const activityScore = (pushEvents * 2) + (pullRequestEvents * 3) + (issuesEvents * 1);
+
+    // Contributor languages: detect from repository language frequency.
+    // Repos with language metadata are counted; top 3 by frequency become topLanguages.
     const languageCounts = {};
-    repos.forEach(repo => {
-        if (repo.language) {
+    (repos || []).forEach(repo => {
+        if (repo && repo.language) {
             languageCounts[repo.language] = (languageCounts[repo.language] || 0) + 1;
         }
     });
     const languages = Object.keys(languageCounts)
         .sort((a, b) => languageCounts[b] - languageCounts[a])
         .slice(0, 10);
+    const topLanguages = languages.slice(0, 3);
+
+    // Contributor interests: topics from their repos. Used to match recommended repos.
+    const contributorTopics = new Set();
+    (repos || []).forEach(repo => {
+        if (repo && Array.isArray(repo.topics)) {
+            repo.topics.forEach(t => contributorTopics.add(t));
+        }
+    });
+    const relevantTopics = contributorTopics.size > 0
+        ? Array.from(contributorTopics)
+        : ['security', 'bug-bounty', 'opensource', 'javascript', 'python', 'web', 'ai', 'machine-learning'];
 
     const github_stats = {
         username: userData.login,
@@ -111,19 +189,40 @@ function buildRecommendations(userData, repos) {
         public_repos: userData.public_repos,
         followers: userData.followers,
         following: userData.following,
-        languages
+        languages,
+        top_languages: topLanguages,
+        activity_score: activityScore,
+        activity_breakdown: { pushEvents, pullRequestEvents, issuesEvents }
     };
 
-    // Top non-fork repos sorted by stars
+    // topicScore: repos with topics matching contributor interests rank higher.
+    // Handles missing/empty repo.topics safely. Improves relevance for OWASP/security contributors.
+    function getTopicScore(repo) {
+        if (!repo || !Array.isArray(repo.topics) || repo.topics.length === 0) return 0;
+        let score = 0;
+        repo.topics.forEach(topic => {
+            if (relevantTopics.includes(topic)) score += 2;
+        });
+        return score;
+    }
+
+    // Ranking: (stars * 0.5) + (activityScore * 0.2) + (languageScore * 0.2) + (topicScore * 0.1)
+    const getFinalScore = (repo) => {
+        const stars = repo.stargazers_count || 0;
+        const languageScore = (topLanguages.length && repo && repo.language && topLanguages.includes(repo.language)) ? 5 : 0;
+        const topicScore = getTopicScore(repo);
+        return (stars * 0.5) + (activityScore * 0.2) + (languageScore * 0.2) + (topicScore * 0.1);
+    };
     const recommended_repos = repos
         .filter(r => !r.fork && r.description)
-        .sort((a, b) => b.stargazers_count - a.stargazers_count)
+        .sort((a, b) => getFinalScore(b) - getFinalScore(a))
         .slice(0, 6)
         .map(r => ({
             name: r.full_name,
             description: r.description,
             stars: r.stargazers_count,
-            url: r.html_url
+            url: r.html_url,
+            topics: Array.isArray(r.topics) ? r.topics : []
         }));
 
     const recommended_communities = [
@@ -216,6 +315,19 @@ function displayResults(data) {
     document.getElementById('user-followers').textContent = githubStats.followers || 0;
     document.getElementById('user-following').textContent = githubStats.following || 0;
 
+    // Display Contributor Activity Score (from PushEvent, PullRequestEvent, IssuesEvent)
+    const activityScoreEl = document.getElementById('contributor-activity-score');
+    if (activityScoreEl) {
+        activityScoreEl.textContent = githubStats.activity_score ?? 0;
+    }
+
+    // Display Top Languages (contributor's main languages used for language match scoring)
+    const topLanguagesEl = document.getElementById('top-languages-list');
+    if (topLanguagesEl) {
+        const topLangs = githubStats.top_languages || [];
+        topLanguagesEl.textContent = topLangs.length ? topLangs.join(', ') : 'No language data';
+    }
+
     // Display languages
     const languagesContainer = document.getElementById('user-languages');
     languagesContainer.innerHTML = '';
@@ -230,6 +342,7 @@ function displayResults(data) {
     const reposContainer = document.getElementById('recommended-repos');
     reposContainer.innerHTML = '';
     (data.recommended_repos || []).forEach(repo => {
+        const topics = repo.topics && repo.topics.length > 0 ? repo.topics.join(', ') : 'None';
         const repoCard = document.createElement('div');
         repoCard.className = 'surface-card rounded-xl p-5 hover:shadow-lg transition';
         repoCard.innerHTML = `
@@ -239,7 +352,10 @@ function displayResults(data) {
             <i class="fas fa-star"></i> ${repo.stars}
         </span>
     </div>
-    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${escapeHtml(repo.description)}</p>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">${escapeHtml(repo.description)}</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+        <span class="font-semibold">Topics:</span> ${escapeHtml(topics)}
+    </p>
     <a href="${escapeHtml(repo.url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-red-600 dark:text-red-400 font-semibold text-sm hover:underline">
         <i class="fab fa-github"></i> View Repository
     </a>
