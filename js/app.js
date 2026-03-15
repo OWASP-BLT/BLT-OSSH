@@ -9,11 +9,13 @@ if (currentTheme === 'dark') {
     html.classList.add('dark');
 }
 
+if (darkToggle) {
 darkToggle.addEventListener('click', () => {
     html.classList.toggle('dark');
     const theme = html.classList.contains('dark') ? 'dark' : 'light';
     localStorage.setItem('theme', theme);
 });
+}
 
 // Form submission
 const form = document.getElementById('ossh-form');
@@ -24,6 +26,7 @@ const errorMessage = document.getElementById('error-message');
 const errorText = document.getElementById('error-text');
 const usernameInput = document.getElementById('github-username');
 
+if (!window.OSSH_SKIP_APP_FORM && form) {
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -91,7 +94,84 @@ form.addEventListener('submit', async (e) => {
         if (loadingEl) loadingEl.style.display = 'none';
     }
 });
+}
 
+/**
+ * Assigns a user to one of four houses based on repo languages and keywords.
+ * @param {Object} userData - GitHub user profile data
+ * @param {Array} repos - User's repositories
+ * @param {string[]} languages - Top languages from repos
+ * @returns {Object} House object with id, name, icon, desc, color, score
+ */
+function assignHouse(userData, repos, languages) {
+    const HOUSES = {
+        buggleton: {
+            name: 'Buggleton',
+            icon: '🐛',
+            desc: 'Bug hunters & QA champions',
+            color: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700',
+            languages: ['Python', 'JavaScript', 'TypeScript', 'Java'],
+            keywords: ['bug', 'test', 'qa', 'selenium', 'cypress', 'jest', 'pytest', 'mocha', 'testing', 'quality']
+        },
+        cybermoose: {
+            name: 'Cybermoose',
+            icon: '🛡️',
+            desc: 'Security & cybersecurity experts',
+            color: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
+            languages: ['Python', 'C', 'Go', 'Rust', 'JavaScript'],
+            keywords: ['security', 'pentest', 'exploit', 'vuln', 'owasp', 'hack', 'crypto', 'encrypt', 'auth', 'xss', 'sqli']
+        },
+        bufferbit: {
+            name: 'Bufferbit',
+            icon: '⚙️',
+            desc: 'Infrastructure & DevOps builders',
+            color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700',
+            languages: ['Shell', 'Python', 'Go', 'HCL', 'YAML', 'Dockerfile'],
+            keywords: ['docker', 'kubernetes', 'terraform', 'ansible', 'ci', 'devops', 'infra', 'deploy', 'pipeline', 'cloud']
+        },
+        darkram: {
+            name: 'Darkram',
+            icon: '⚡',
+            desc: 'Backend & systems engineers',
+            color: 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-700',
+            languages: ['C', 'C++', 'Rust', 'Go', 'Python', 'Java'],
+            keywords: ['backend', 'system', 'kernel', 'embedded', 'compiler', 'database', 'api', 'server', 'performance']
+        }
+    };
+
+    const scores = { buggleton: 0, cybermoose: 0, bufferbit: 0, darkram: 0 };
+    const text = [
+        (userData.bio || '').toLowerCase(),
+        ...repos.map(r => [r.name, r.description, r.full_name].filter(Boolean).join(' ').toLowerCase())
+    ].join(' ');
+
+    Object.keys(HOUSES).forEach(houseId => {
+        const house = HOUSES[houseId];
+        house.languages.forEach(lang => {
+            if (languages.includes(lang)) scores[houseId] += 3;
+        });
+        house.keywords.forEach(kw => {
+            const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            if (regex.test(text)) scores[houseId] += 2;
+        });
+    });
+
+    // Sort by score desc, then by house id alphabetically for deterministic tie-breaking
+    const sorted = Object.entries(scores).sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return a[0].localeCompare(b[0]);
+    });
+    const winner = sorted[0];
+    const house = HOUSES[winner[0]];
+    return { id: winner[0], ...house, score: winner[1] };
+}
+
+/**
+ * Builds recommendation data from GitHub profile and repos.
+ * @param {Object} userData - GitHub user profile
+ * @param {Array} repos - User's repositories
+ * @returns {Object} Recommendations with github_stats, house, repos, communities, articles, channels
+ */
 function buildRecommendations(userData, repos) {
     // Extract languages from repos (weighted by frequency)
     const languageCounts = {};
@@ -103,6 +183,8 @@ function buildRecommendations(userData, repos) {
     const languages = Object.keys(languageCounts)
         .sort((a, b) => languageCounts[b] - languageCounts[a])
         .slice(0, 10);
+
+    const house = assignHouse(userData, repos, languages);
 
     const github_stats = {
         username: userData.login,
@@ -184,6 +266,7 @@ function buildRecommendations(userData, repos) {
 
     return {
         github_stats,
+        house,
         recommended_repos,
         recommended_communities,
         recommended_articles,
@@ -191,15 +274,24 @@ function buildRecommendations(userData, repos) {
     };
 }
 
+/** Shows an error message in the UI. */
 function showError(message) {
-    errorText.textContent = message;
-    errorMessage.classList.remove('hidden');
+    if (errorText) errorText.textContent = message;
+    if (errorMessage) {
+        errorMessage.classList.remove('hidden');
+        errorMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
+/** Hides the error message. */
 function hideError() {
-    errorMessage.classList.add('hidden');
+    if (errorMessage) errorMessage.classList.add('hidden');
 }
 
+/**
+ * Renders recommendation results to the DOM.
+ * @param {Object} data - Recommendation data from buildRecommendations
+ */
 function displayResults(data) {
     const resultsSection = document.getElementById('results-section');
     const githubStats = data.github_stats;
@@ -211,6 +303,20 @@ function displayResults(data) {
     document.getElementById('user-avatar').src = githubStats.avatar_url || 'static/logo.png';
     document.getElementById('user-name').textContent = githubStats.name || githubStats.username;
     document.getElementById('user-bio').textContent = githubStats.bio || 'No bio available';
+
+    // Display House Badge
+    const houseBadge = document.getElementById('house-badge');
+    if (houseBadge && data.house) {
+        houseBadge.className = `inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold border ${data.house.color}`;
+        houseBadge.title = data.house.desc;
+        const houseIcon = document.getElementById('house-icon');
+        const houseName = document.getElementById('house-name');
+        if (houseIcon) houseIcon.textContent = data.house.icon;
+        if (houseName) houseName.textContent = data.house.name;
+        houseBadge.classList.remove('hidden');
+    } else if (houseBadge) {
+        houseBadge.classList.add('hidden');
+    }
     document.getElementById('user-repos').textContent = githubStats.public_repos || 0;
     document.getElementById('user-followers').textContent = githubStats.followers || 0;
     document.getElementById('user-following').textContent = githubStats.following || 0;
@@ -325,15 +431,21 @@ function displayResults(data) {
         viewProfileBtn.href = `https://github.com/${encodeURIComponent(githubStats.username)}`;
     }
 
+    // Setup create profile button
+    setupCreateProfileButton(data);
+
     // Show results section and scroll to it
     resultsSection.classList.remove('hidden');
     resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     // Hide features section
-    document.querySelector('.grid.gap-6.md\\:grid-cols-3.mb-12').classList.add('hidden');
-    document.querySelector('.surface-card.rounded-2xl.p-8.sm\\:p-10').classList.add('hidden');
+    const featuresGrid = document.querySelector('.grid.gap-6.md\\:grid-cols-3.mb-12');
+    const formCard = document.querySelector('.surface-card.rounded-2xl.p-8.sm\\:p-10');
+    if (featuresGrid) featuresGrid.classList.add('hidden');
+    if (formCard) formCard.classList.add('hidden');
 }
 
+/** Escapes HTML special characters to prevent XSS. */
 function escapeHtml(str) {
     if (str == null) return '';
     return String(str)
@@ -349,53 +461,129 @@ document.addEventListener('DOMContentLoaded', () => {
     const analyzeAnotherBtn = document.getElementById('analyze-another');
     if (analyzeAnotherBtn) {
         analyzeAnotherBtn.addEventListener('click', () => {
-            // Hide results
-            document.getElementById('results-section').classList.add('hidden');
+            const resultsSection = document.getElementById('results-section');
+            const featuresGrid = document.querySelector('.grid.gap-6.md\\:grid-cols-3.mb-12');
+            const formCard = document.querySelector('.surface-card.rounded-2xl.p-8.sm\\:p-10');
 
-            // Show form and features
-            document.querySelector('.grid.gap-6.md\\:grid-cols-3.mb-12').classList.remove('hidden');
-            document.querySelector('.surface-card.rounded-2xl.p-8.sm\\:p-10').classList.remove('hidden');
+            if (resultsSection) resultsSection.classList.add('hidden');
+            if (featuresGrid) featuresGrid.classList.remove('hidden');
+            if (formCard) formCard.classList.remove('hidden');
 
-            // Clear form
-            usernameInput.value = '';
+            if (usernameInput) usernameInput.value = '';
 
-            // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
 
     // Create profile button handler
-    const createProfileBtn = document.getElementById('create-profile-btn');
-    if (createProfileBtn) {
-        createProfileBtn.addEventListener('click', () => {
-            if (window.currentUserData) {
-                const profileUrl = buildProfileIssueUrl(window.currentUserData);
-                window.open(profileUrl, '_blank');
-            }
-        });
-    }
 });
 
+/** Attaches click handler to create-profile button. */
+function setupCreateProfileButton(data) {
+    const createProfileBtn = document.getElementById('create-profile-btn');
+    if (!createProfileBtn) return;
+
+    const newBtn = createProfileBtn.cloneNode(true);
+    createProfileBtn.parentNode.replaceChild(newBtn, createProfileBtn);
+
+    newBtn.addEventListener('click', () => {
+        const profileUrl = buildProfileIssueUrl(data);
+        window.open(profileUrl, '_blank');
+    });
+}
+
+/** Builds GitHub issue URL with pre-filled profile data. */
 function buildProfileIssueUrl(data) {
     const githubStats = data.github_stats;
-
-    // Build the issue URL with pre-filled data
     const baseUrl = 'https://github.com/OWASP-BLT/BLT-OSSH/issues/new';
-    const template = 'user_profile.yml';
 
-    // Create URL parameters
+    const skills = githubStats.languages.slice(0, 10).join(', ');
+    const topLanguages = githubStats.languages.slice(0, 3).join(', ');
+    const lookingFor = `Looking to contribute to open source projects in ${topLanguages}. Interested in ${data.recommended_communities.map(c => c.name).join(', ')}.`;
+
+    const recommendedProjects = data.recommended_repos
+        .slice(0, 5)
+        .map(r => `- [${r.name}](${r.url}) ⭐ ${r.stars} - ${r.description}`)
+        .join('\n');
+
+    const recommendedCommunities = data.recommended_communities
+        .map(c => `- [${c.name}](${c.url}) - ${c.description} (${c.members} members)`)
+        .join('\n');
+
+    const recommendedArticles = data.recommended_articles
+        .map(a => `- [${a.title}](${a.url}) - ${a.category}`)
+        .join('\n');
+
+    const bodyContent = `# 🎯 OSSH Analysis Summary
+
+> **Profile analyzed on:** ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+
+## 📊 GitHub Stats
+- **Your House:** ${data.house ? `${data.house.icon} ${data.house.name} — ${data.house.desc}` : '—'}
+- **Username:** [@${githubStats.username}](https://github.com/${githubStats.username})
+- **Name:** ${githubStats.name || githubStats.username}
+- **Bio:** ${githubStats.bio || 'No bio provided'}
+- **Repositories:** ${githubStats.public_repos}
+- **Followers:** ${githubStats.followers}
+- **Following:** ${githubStats.following}
+- **Top Languages:** ${githubStats.languages.slice(0, 5).join(', ')}
+
+## 🌟 Your Top Recommended Projects
+${recommendedProjects}
+
+## 👥 Recommended Communities to Join
+${recommendedCommunities}
+
+## 📚 Recommended Articles for You
+${recommendedArticles}
+
+## 💬 Discussion Channels
+${data.recommended_discussion_channels.map(ch => `- [${ch.name}](${ch.url}) - ${ch.platform}`).join('\n')}
+
+---
+
+**🤖 Generated by:** [OSSH - Open Source Sorting Hat](https://github.com/OWASP-BLT/BLT-OSSH)
+
+**✏️ Note:** The information above has been automatically populated based on your GitHub profile analysis. Please review and edit the profile fields below before submitting.`;
+
+    const recommendedProjectsDisplay = data.recommended_repos
+        .slice(0, 6)
+        .map(r => `**${r.name}** ⭐ ${r.stars}\n${r.description}\n🔗 [View](${r.url})`)
+        .join('\n\n');
+
+    const recommendedCommunitiesDisplay = data.recommended_communities
+        .map(c => `**${c.name}** (${c.members} members)\n${c.description}\n🔗 [Visit](${c.url})`)
+        .join('\n\n');
+
+    const recommendedArticlesDisplay = data.recommended_articles
+        .map(a => `**${a.title}** - ${a.category}\n🔗 [Read](${a.url})`)
+        .join('\n\n');
+
     const params = new URLSearchParams({
-        template: template,
+        template: 'user_profile.yml',
         title: `[PROFILE] ${githubStats.name || githubStats.username}`,
+        labels: 'profile',
         'github_username': githubStats.username,
         'display_name': githubStats.name || githubStats.username,
-        'bio': githubStats.bio || `Open source developer passionate about ${githubStats.languages.slice(0, 3).join(', ')}`,
-        'skills': githubStats.languages.join(', '),
-        'looking_for': 'Looking to contribute to open source projects and connect with other developers'
+        'bio': githubStats.bio || `Open source developer passionate about ${topLanguages}`,
+        'skills': skills,
+        'looking_for': lookingFor,
+        'recommended_projects': recommendedProjectsDisplay,
+        'recommended_communities': recommendedCommunitiesDisplay,
+        'recommended_reading': recommendedArticlesDisplay,
     });
 
+    params.append('body', bodyContent);
     return `${baseUrl}?${params.toString()}`;
 }
 
+// Expose for index.html inline script
+window.buildRecommendations = buildRecommendations;
+window.displayResults = displayResults;
+window.showError = showError;
+window.hideError = hideError;
+window.escapeHtml = escapeHtml;
+
 // Set footer year
-document.getElementById('footer-year').textContent = new Date().getFullYear();
+const footerYear = document.getElementById('footer-year');
+if (footerYear) footerYear.textContent = new Date().getFullYear();
