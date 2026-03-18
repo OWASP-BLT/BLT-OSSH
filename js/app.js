@@ -106,7 +106,7 @@ form.addEventListener('submit', async (e) => {
         if (!Array.isArray(reposData)) {
             const reposResponse = await fetch(
                 `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
-                { headers: { Accept: 'application/vnd.github.mercy-preview+json' } }
+                { headers: { Accept: 'application/vnd.github+json' } }
             );
             reposData = reposResponse.ok ? await reposResponse.json() : [];
             if (Array.isArray(reposData)) {
@@ -207,12 +207,12 @@ function buildRecommendations(userData, repos, eventsData = []) {
         return score;
     }
 
-    // Ranking: (stars * 0.5) + (activityScore * 0.2) + (languageScore * 0.2) + (topicScore * 0.1)
+    // Ranking: (stars * 0.5) + (languageScore * 0.2) + (topicScore * 0.1)
     const getFinalScore = (repo) => {
         const stars = repo.stargazers_count || 0;
         const languageScore = (topLanguages.length && repo && repo.language && topLanguages.includes(repo.language)) ? 5 : 0;
         const topicScore = getTopicScore(repo);
-        return (stars * 0.5) + (activityScore * 0.2) + (languageScore * 0.2) + (topicScore * 0.1);
+        return (stars * 0.5) + (languageScore * 0.2) + (topicScore * 0.1);
     };
     const recommended_repos = repos
         .filter(r => !r.fork && r.description)

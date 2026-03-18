@@ -288,7 +288,7 @@ After analyzing your GitHub profile, the system automatically pre-fills:
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding project recommendations, improving the matching algorithm, enhancing the UI/UX, and more.
 
-Contributions are welcome! Follow these steps to contribute:
+Here's a quick start:
 
 ### 1. Create a Branch
 
