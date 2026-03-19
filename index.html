@@ -829,6 +829,15 @@
       errorMessage.classList.add('hidden');
     }
 
+    function sanitizeExternalUrl(rawUrl) {
+      try {
+        const url = new URL(rawUrl, window.location.origin);
+        return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '#';
+      } catch {
+        return '#';
+      }
+    }
+
     function displayResults(data) {
     const resultsSection = document.getElementById('results-section');
     const githubStats = data.github_stats;
@@ -915,15 +924,6 @@
     const reposContainer = document.getElementById('recommended-repos');
     reposContainer.innerHTML = '';
 
-    function sanitizeExternalUrl(rawUrl) {
-      try {
-        const url = new URL(rawUrl, window.location.origin);
-        return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '#';
-      } catch {
-        return '#';
-      }
-    }
-
     (data.recommended_repos || []).forEach(row => {
       const repo = row?.item ? row.item : row; // support both shapes
 
@@ -978,7 +978,7 @@
           <span class="text-xs text-gray-500 dark:text-gray-400">
             <i class="fas fa-users"></i> ${escapeHtml(String(cMembers || '—'))}
           </span>
-          <a href="${escapeHtml(cUrl)}" target="_blank" rel="noopener noreferrer"
+          <a href="${escapeHtml(sanitizeExternalUrl(cUrl))}" target="_blank" rel="noopener noreferrer"
             class="text-red-600 dark:text-red-400 font-semibold text-sm hover:underline">
             Visit <i class="fas fa-external-link-alt ml-1"></i>
           </a>
@@ -1019,7 +1019,7 @@
             ${renderTagChips(article.tags || row?.matching_tags)}
             ${renderScoreReason(row?.item ? row : null)}
 
-            <a href="${escapeHtml(aUrl)}" target="_blank" rel="noopener noreferrer"
+            <a href="${escapeHtml(sanitizeExternalUrl(aUrl))}" target="_blank" rel="noopener noreferrer"
               class="block mt-3 text-red-600 dark:text-red-400 font-semibold text-sm hover:underline">
               Read More <i class="fas fa-arrow-right ml-1"></i>
             </a>
@@ -1059,7 +1059,7 @@
         ${renderTagChips(chTags)}
         ${renderScoreReason(row?.item ? row : null)}
 
-        <a href="${escapeHtml(chUrl)}" target="_blank" rel="noopener noreferrer"
+        <a href="${escapeHtml(sanitizeExternalUrl(chUrl))}" target="_blank" rel="noopener noreferrer"
           class="inline-flex items-center gap-2 text-red-600 dark:text-red-400 font-semibold text-sm hover:underline mt-4">
           Join <i class="fas fa-arrow-right ml-1"></i>
         </a>
