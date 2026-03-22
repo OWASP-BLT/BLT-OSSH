@@ -100,18 +100,46 @@ form.addEventListener('submit', async (e) => {
 
     const userData = await userResponse.json();
 
-    // Fetch user repositories
-    const reposResponse = await fetch(
-      `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
-      { headers: { Accept: 'application/vnd.github+json' } }
-    );
-    if (!reposResponse.ok) {
-      throw new Error(`Failed to load repositories (${reposResponse.status}). Please try again later.`);
+    const reposKey = `github_repos_${username}`;
+    let reposData = getCachedData(reposKey);
+    if (!Array.isArray(reposData)) {
+      const reposResponse = await fetch(
+        `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
+        { headers: { Accept: 'application/vnd.github+json' } }
+      );
+      if (!reposResponse.ok) {
+        throw new Error(`Failed to load repositories (${reposResponse.status}). Please try again later.`);
+      }
+      reposData = await reposResponse.json();
+      if (!Array.isArray(reposData)) {
+        throw new Error('Unexpected repository data from GitHub. Please try again.');
+      }
+      setCachedData(reposKey, reposData);
     }
-    const reposData = await reposResponse.json();
 
-    // Build and display results
-    const data = await buildRecommendations(userData, reposData);
+    const eventsKey = `github_events_${username}`;
+    let eventsData = getCachedData(eventsKey);
+    if (!Array.isArray(eventsData)) {
+      try {
+        const eventsResponse = await fetch(
+          `https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=100`,
+          { headers: { Accept: 'application/vnd.github+json' } }
+        );
+        if (eventsResponse.ok) {
+          const parsed = await eventsResponse.json();
+          eventsData = Array.isArray(parsed) ? parsed : [];
+          setCachedData(eventsKey, eventsData);
+        } else {
+          eventsData = [];
+        }
+      } catch (err) {
+        console.warn('Could not fetch contributor events:', err);
+        eventsData = [];
+      }
+    }
+    eventsData = Array.isArray(eventsData) ? eventsData : [];
+
+    const data = await buildRecommendations(userData, reposData, eventsData);
     displayResults(data);
 
   } catch (error) {
@@ -302,9 +330,15 @@ function recommendGeneric(items, userTags, languageWeights, opts) {
 
 async function buildRecommendations(userData, repos, eventsData = []) {
   const eventsArr = Array.isArray(eventsData) ? eventsData : [];
-  const pushEvents = eventsArr.filter(e => e && e.type === 'PushEvent').length;
-  const pullRequestEvents = eventsArr.filter(e => e && e.type === 'PullRequestEvent').length;
-  const issuesEvents = eventsArr.filter(e => e && e.type === 'IssuesEvent').length;
+  let pushEvents = 0;
+  let pullRequestEvents = 0;
+  let issuesEvents = 0;
+  for (const e of eventsArr) {
+    if (!e || !e.type) continue;
+    if (e.type === 'PushEvent') pushEvents++;
+    else if (e.type === 'PullRequestEvent') pullRequestEvents++;
+    else if (e.type === 'IssuesEvent') issuesEvents++;
+  }
   const activityScore = (pushEvents * 2) + (pullRequestEvents * 3) + (issuesEvents * 1);
 
   const languageCounts = {};
