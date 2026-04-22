@@ -34,6 +34,7 @@ OSSH (Open-Source Sorting Hat) is a tool that analyzes your GitHub profile and r
 - Open-source projects matching your tech stack
 - Developer communities and organizations
 - Curated learning resources and articles
+- **Research papers** from arXiv on topics relevant to your skills
 - Active discussion channels (Discord, Slack, Reddit, etc.)
 
 ### 🌙 Modern UI/UX
@@ -88,7 +89,8 @@ It complements the main [BLT platform](https://github.com/OWASP-BLT/BLT) by focu
 
 - **Projects**: Open-source repositories matching your skills and interests
 - **Communities**: Developer communities and organizations
-- **Articles**: Learning resources and documentation
+- **Articles**: Learning resources and documentation from DEV Community
+- **Research Papers**: Academic papers from arXiv (AI/ML, Security, Systems, etc.)
 - **Discussions**: Forums, Discord servers, and chat platforms
 
 ## How Profiles Work
@@ -214,7 +216,9 @@ The system interacts with the **GitHub REST API** to retrieve user and repositor
 | `GET https://api.github.com/users/{username}` | User profile data (name, bio, avatar, follower counts) |
 | `GET https://api.github.com/users/{username}/repos?sort=updated&per_page=100` | User repository list with languages and topics |
 | `GET https://api.github.com/repos/{owner}/{repo}/issues?labels=profile&state=open` | Community profiles (used by workflow to generate `data/profiles.json`) |
+| `http://export.arxiv.org/api/query?` | Research papers (fetched by workflow, filtered by category and date) |
 | `data/profiles.json` | Community profiles (static file; Community page loads this) |
+| `data/ossh_catalog.json` | Recommendation catalog (repos, communities, articles, papers, channels) |
 
 ### Data Fetched
 
