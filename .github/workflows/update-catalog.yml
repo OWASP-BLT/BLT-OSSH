@@ -39,6 +39,9 @@ jobs:
       - name: Fetch Reddit communities
         run: python scripts/fetch_reddit.py
 
+      - name: Fetch research papers from arXiv
+        run: python scripts/fetch_research_papers.py
+
       - name: Commit updated catalog
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"

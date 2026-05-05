@@ -47342,5 +47342,95 @@
         "tutorial"
       ]
     }
+  ],
+  "research_papers": [
+    {
+      "title": "Attention Is All You Need",
+      "authors": ["Ashish Vaswani", "Noam Shazeer", "Parmar Aditya"],
+      "summary": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.",
+      "published": "2017-06-12",
+      "arxiv_id": "1706.03762",
+      "url": "https://arxiv.org/abs/1706.03762",
+      "pdf_url": "https://arxiv.org/pdf/1706.03762.pdf",
+      "source": "arXiv",
+      "tags": ["machine-learning", "neural-networks", "transformers", "deep-learning", "python", "ai", "learning", "algorithms", "research"]
+    },
+    {
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "authors": ["Jacob Devlin", "Ming-Wei Chang", "Kenton Lee"],
+      "summary": "We introduce BERT, a new method of pre-training language representations from unlabeled text that significantly improves upon previous approaches. BERT is designed to pre-train deep bidirectional representations by jointly conditioning on both left and right context in all layers.",
+      "published": "2018-10-11",
+      "arxiv_id": "1810.04805",
+      "url": "https://arxiv.org/abs/1810.04805",
+      "pdf_url": "https://arxiv.org/pdf/1810.04805.pdf",
+      "source": "arXiv",
+      "tags": ["nlp", "language-models", "deep-learning", "machine-learning", "python", "nlp", "learning", "ai", "research", "text"]
+    },
+    {
+      "title": "An Introduction to Deep Learning",
+      "authors": ["Goodfellow Ian", "Bengio Yoshua", "Courville Aaron"],
+      "summary": "The Deep Learning textbook is a resource intended to help students and practitioners enter the field of machine learning in general and deep learning in particular.",
+      "published": "2016-08-21",
+      "arxiv_id": "1801.00631",
+      "url": "https://arxiv.org/abs/1801.00631",
+      "pdf_url": "https://arxiv.org/pdf/1801.00631.pdf",
+      "source": "arXiv",
+      "tags": ["machine-learning", "deep-learning", "neural-networks", "python", "tutorial", "learning", "ai", "research", "algorithms"]
+    },
+    {
+      "title": "Secure Multi-Party Computation: A Survey",
+      "authors": ["Yehuda Lindell", "Benny Pinkas"],
+      "summary": "Secure multi-party computation (MPC) is a fundamental problem in cryptography which has received extensive research over the last two decades. In this paper, we survey the landscape of secure computation.",
+      "published": "2009-01-15",
+      "arxiv_id": "0901.3671",
+      "url": "https://arxiv.org/abs/0901.3671",
+      "pdf_url": "https://arxiv.org/pdf/0901.3671.pdf",
+      "source": "arXiv",
+      "tags": ["cryptography", "security", "python", "c", "encryption", "algorithms", "research", "study"]
+    },
+    {
+      "title": "A Survey on Deep Learning Architectures for Image-based Recognition",
+      "authors": ["Amlaan Bhoi"],
+      "summary": "This paper provides a comprehensive survey on deep learning based approaches for image recognition and classification tasks. The focus is on how different CNN architectures have evolved and their applications.",
+      "published": "2018-08-23",
+      "arxiv_id": "1808.07747",
+      "url": "https://arxiv.org/abs/1808.07747",
+      "pdf_url": "https://arxiv.org/pdf/1808.07747.pdf",
+      "source": "arXiv",
+      "tags": ["deep-learning", "machine-learning", "image-recognition", "python", "cnn", "computer-vision", "learning", "ai", "research"]
+    },
+    {
+      "title": "Software Testing: A Practitioner's Handbook",
+      "authors": ["Richard Smith"],
+      "summary": "This handbook provides practical guidance on modern software testing practices, methodologies, and tools. It covers unit testing, integration testing, and test automation.",
+      "published": "2020-03-10",
+      "arxiv_id": "2003.04531",
+      "url": "https://arxiv.org/abs/2003.04531",
+      "pdf_url": "https://arxiv.org/pdf/2003.04531.pdf",
+      "source": "arXiv",
+      "tags": ["software-engineering", "testing", "qa", "automation", "python", "testing", "research", "development", "best-practice"]
+    },
+    {
+      "title": "Distributed Systems: Design Patterns and Best Practices",
+      "authors": ["Andrew Tanenbaum"],
+      "summary": "This paper discusses the fundamental principles of designing distributed systems, including consistency models, failure handling, and communication patterns.",
+      "published": "2019-07-22",
+      "arxiv_id": "1907.08931",
+      "url": "https://arxiv.org/abs/1907.08931",
+      "pdf_url": "https://arxiv.org/pdf/1907.08931.pdf",
+      "source": "arXiv",
+      "tags": ["systems-design", "distributed-systems", "architecture", "python", "c", "systems", "research", "development", "performance"]
+    },
+    {
+      "title": "Graph Neural Networks: A Review of Methods and Applications",
+      "authors": ["Ziwei Zhang", "Peng Cui", "Wenwu Zhu"],
+      "summary": "Graph neural networks (GNNs) have emerged as a powerful architecture for learning on graph-structured data. This survey provides a comprehensive overview of GNN methods and their applications.",
+      "published": "2020-01-01",
+      "arxiv_id": "2003.00911",
+      "url": "https://arxiv.org/abs/2003.00911",
+      "pdf_url": "https://arxiv.org/pdf/2003.00911.pdf",
+      "source": "arXiv",
+      "tags": ["graph-neural-networks", "machine-learning", "deep-learning", "python", "neural-networks", "learning", "ai", "research"]
+    }
   ]
 }
