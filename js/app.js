@@ -1,3 +1,35 @@
+// GitHub API cache: reduces rate limit hits (60 req/hr unauthenticated) and speeds repeat lookups.
+// TTL 10 minutes. If localStorage is unavailable, cache is skipped.
+const CACHE_TTL = 10 * 60 * 1000;
+
+function getCachedData(key) {
+  try {
+    const cached = localStorage.getItem(key);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    if (!parsed || typeof parsed.timestamp !== 'number' || parsed.data === undefined) {
+      try { localStorage.removeItem(key); } catch (_) { /* ignore */ }
+      return null;
+    }
+    if (Date.now() - parsed.timestamp > CACHE_TTL) {
+      try { localStorage.removeItem(key); } catch (_) { /* ignore */ }
+      return null;
+    }
+    return parsed.data;
+  } catch (err) {
+    try { localStorage.removeItem(key); } catch (_) { /* ignore */ }
+    return null;
+  }
+}
+
+function setCachedData(key, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data }));
+  } catch (err) {
+    console.warn('Cache write failed (storage full or unavailable):', err);
+  }
+}
+
 // Dark mode toggle
 const darkToggle = document.getElementById('dark-toggle');
 const html = document.documentElement;
@@ -68,18 +100,51 @@ form.addEventListener('submit', async (e) => {
 
     const userData = await userResponse.json();
 
-    // Fetch user repositories
-    const reposResponse = await fetch(
-      `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
-      { headers: { Accept: 'application/vnd.github+json' } }
-    );
-    if (!reposResponse.ok) {
-      throw new Error(`Failed to load repositories (${reposResponse.status}). Please try again later.`);
+    const reposKey = `github_repos_${username}`;
+    let reposData = getCachedData(reposKey);
+    if (!Array.isArray(reposData)) {
+      const reposResponse = await fetch(
+        `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`,
+        {
+          headers: {
+            // mercy-preview helps ensure repo `topics` are populated for topic-based matching
+            Accept: 'application/vnd.github+json, application/vnd.github.mercy-preview+json',
+          },
+        }
+      );
+      if (!reposResponse.ok) {
+        throw new Error(`Failed to load repositories (${reposResponse.status}). Please try again later.`);
+      }
+      reposData = await reposResponse.json();
+      if (!Array.isArray(reposData)) {
+        throw new Error('Unexpected repository data from GitHub. Please try again.');
+      }
+      setCachedData(reposKey, reposData);
     }
-    const reposData = await reposResponse.json();
 
-    // Build and display results
-    const data = await buildRecommendations(userData, reposData);
+    const eventsKey = `github_events_${username}`;
+    let eventsData = getCachedData(eventsKey);
+    if (!Array.isArray(eventsData)) {
+      try {
+        const eventsResponse = await fetch(
+          `https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=100`,
+          { headers: { Accept: 'application/vnd.github+json' } }
+        );
+        if (eventsResponse.ok) {
+          const parsed = await eventsResponse.json();
+          eventsData = Array.isArray(parsed) ? parsed : [];
+          setCachedData(eventsKey, eventsData);
+        } else {
+          eventsData = [];
+        }
+      } catch (err) {
+        console.warn('Could not fetch contributor events:', err);
+        eventsData = [];
+      }
+    }
+    eventsData = Array.isArray(eventsData) ? eventsData : [];
+
+    const data = await buildRecommendations(userData, reposData, eventsData);
     displayResults(data);
 
   } catch (error) {
@@ -268,7 +333,13 @@ function recommendGeneric(items, userTags, languageWeights, opts) {
     .slice(0, topN);
 }
 
-async function buildRecommendations(userData, repos) {
+async function buildRecommendations(userData, repos, eventsData = []) {
+  const eventsArr = Array.isArray(eventsData) ? eventsData : [];
+  const pushEvents = eventsArr.filter(e => e && e.type === 'PushEvent').length;
+  const pullRequestEvents = eventsArr.filter(e => e && e.type === 'PullRequestEvent').length;
+  const issuesEvents = eventsArr.filter(e => e && e.type === 'IssuesEvent').length;
+  const activityScore = (pushEvents * 2) + (pullRequestEvents * 3) + (issuesEvents * 1);
+
   const languageCounts = {};
   (repos || []).forEach(repo => {
     if (repo.language) languageCounts[repo.language] = (languageCounts[repo.language] || 0) + 1;
@@ -286,6 +357,7 @@ async function buildRecommendations(userData, repos) {
 
   const allowedTags = buildAllowedTagSet(catalog);
   const { userTags, languageWeights } = preprocessUser(repos, allowedTags);
+  const contributorTopicsSet = buildContributorTopicSet(repos);
 
   const github_stats = {
     username: userData.login,
@@ -296,12 +368,16 @@ async function buildRecommendations(userData, repos) {
     followers: userData.followers,
     following: userData.following,
     languages,
+    top_languages: languages.slice(0, 3),
+    activity_score: activityScore,
+    activity_breakdown: { pushEvents, pullRequestEvents, issuesEvents },
   };
 
-  const recommended_repos = recommendGeneric(catalog.repos, userTags, languageWeights, { topN: 6, usesLanguage: true });
-  const recommended_communities = recommendGeneric(catalog.communities, userTags, languageWeights, { topN: 6, usesLanguage: true });
-  const recommended_discussion_channels = recommendGeneric(catalog.discussion_channels, userTags, languageWeights, { topN: 6, usesLanguage: false });
-  const recommended_articles = recommendGeneric(catalog.articles, userTags, languageWeights, { topN: 8, usesLanguage: false });
+  const recOpts = { contributorTopicsSet };
+  const recommended_repos = recommendGeneric(catalog.repos, userTags, languageWeights, { topN: 6, usesLanguage: true, ...recOpts });
+  const recommended_communities = recommendGeneric(catalog.communities, userTags, languageWeights, { topN: 6, usesLanguage: true, ...recOpts });
+  const recommended_discussion_channels = recommendGeneric(catalog.discussion_channels, userTags, languageWeights, { topN: 6, usesLanguage: false, ...recOpts });
+  const recommended_articles = recommendGeneric(catalog.articles, userTags, languageWeights, { topN: 8, usesLanguage: false, ...recOpts });
 
   return {
     github_stats,
@@ -405,6 +481,16 @@ function displayResults(data) {
   document.getElementById('user-repos').textContent = githubStats.public_repos || 0;
   document.getElementById('user-followers').textContent = githubStats.followers || 0;
   document.getElementById('user-following').textContent = githubStats.following || 0;
+
+  const activityScoreEl = document.getElementById('contributor-activity-score');
+  if (activityScoreEl) {
+    activityScoreEl.textContent = githubStats.activity_score ?? 0;
+  }
+  const topLanguagesEl = document.getElementById('top-languages-list');
+  if (topLanguagesEl) {
+    const topLangs = githubStats.top_languages || [];
+    topLanguagesEl.textContent = topLangs.length ? topLangs.join(', ') : 'No language data';
+  }
 
   // Display languages
   const languagesContainer = document.getElementById('user-languages');
@@ -621,6 +707,7 @@ function buildProfileIssueUrl(data) {
 - **Followers:** ${githubStats.followers}
 - **Following:** ${githubStats.following}
 - **Top Languages:** ${(githubStats.languages || []).slice(0, 5).join(', ')}
+- **Contributor activity score:** ${githubStats.activity_score ?? 0} (weighted from recent public Push / PR / issue events)
 
 ## \u{1F31F} Your Top Recommended Projects
 ${recommendedProjects}

@@ -212,7 +212,6 @@ The system interacts with the **GitHub REST API** to retrieve user and repositor
 | Endpoint | Purpose |
 |----------|---------|
 | `GET https://api.github.com/users/{username}` | User profile data (name, bio, avatar, follower counts) |
-| `GET https://api.github.com/users/{username}/repos?sort=updated&per_page=100` | User repository list with languages and topics |
 | `GET https://api.github.com/repos/{owner}/{repo}/issues?labels=profile&state=open` | Community profiles (used by workflow to generate `data/profiles.json`) |
 | `data/profiles.json` | Community profiles (static file; Community page loads this) |
 
@@ -288,11 +287,49 @@ After analyzing your GitHub profile, the system automatically pre-fills:
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding project recommendations, improving the matching algorithm, enhancing the UI/UX, and more.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+You can also follow these steps to contribute:
+
+### 1. Create a Branch
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+Use descriptive branch names: `feature/`, `fix/`, `docs/` prefixes help maintainers understand the change type.
+
+### 2. Make Your Changes
+
+- Edit files in `index.html`, `community.html`, `js/app.js`, or add new assets
+- Follow existing code style and formatting
+- Ensure the app works when served locally
+
+### 3. Run Tests Before Submitting
+
+```bash
+npm test
+```
+
+(Currently a placeholder; add tests as the project grows.)
+
+### 4. Open a Pull Request
+
+1. Push your branch: `git push origin feature/your-feature-name`
+2. Open a PR on GitHub against the `main` branch
+3. Provide a clear description of what changed and why
+4. Link any related issues if applicable
+
+### Code Style
+
+- **JavaScript**: Use consistent formatting; the project uses standard ES6+ syntax
+- **HTML**: Follow existing indentation and structure
+- **Markdown**: Use proper headers and formatting for documentation
+
+### What to Contribute
+
+- **New project recommendations** — Add or improve projects in the recommendation data
+- **Matching algorithm** — Improve `buildRecommendations()` in `js/app.js`
+- **UI/UX enhancements** — Accessibility, responsive design, dark mode
+- **Documentation** — README, ARCHITECTURE.md, or inline comments
 
 ## License
 
